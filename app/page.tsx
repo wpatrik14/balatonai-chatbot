@@ -10,11 +10,18 @@ import { Send, Bot, User, Loader2, RotateCcw, Settings, Clock } from "lucide-rea
 import { useRef, useEffect, useState } from "react"
 import { useSession } from "../hooks/useSession"
 
+interface MessageWithTiming {
+  id: string
+  role: string
+  content: string
+  responseTime?: number
+}
+
 export default function LakeBalatonChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [requestStartTime, setRequestStartTime] = useState<number | null>(null)
-  const [responseTime, setResponseTime] = useState<number | null>(null)
+  const [messagesWithTiming, setMessagesWithTiming] = useState<MessageWithTiming[]>([])
 
   const { sessionId, isLoading: sessionLoading, startNewSession } = useSession()
 
@@ -25,27 +32,54 @@ export default function LakeBalatonChat() {
     },
     onResponse: (response) => {
       console.log("Chat response received:", response)
-      if (requestStartTime) {
-        const elapsed = (Date.now() - requestStartTime) / 1000
-        setResponseTime(elapsed)
-        console.log(`Response time: ${elapsed.toFixed(2)}s`)
-      }
     },
     onFinish: (message) => {
       console.log("Chat finished with message:", message)
+
+      // Calculate response time and add it to the message
+      if (requestStartTime && message.role === "assistant") {
+        const responseTime = (Date.now() - requestStartTime) / 1000
+        console.log(`Response time: ${responseTime.toFixed(2)}s`)
+
+        // Update the messages with timing
+        setMessagesWithTiming((prev) => {
+          const updated = [...prev]
+          const lastAssistantIndex = updated.map((m) => m.role).lastIndexOf("assistant")
+          if (lastAssistantIndex !== -1) {
+            updated[lastAssistantIndex] = {
+              ...updated[lastAssistantIndex],
+              responseTime,
+            }
+          }
+          return updated
+        })
+      }
       setRequestStartTime(null)
     },
     onError: (error) => {
       console.error("Chat error:", error)
       setRequestStartTime(null)
-      setResponseTime(null)
     },
   })
+
+  // Sync messages with timing state
+  useEffect(() => {
+    setMessagesWithTiming((prev) => {
+      // If messages length changed, update our timing array
+      if (prev.length !== messages.length) {
+        const newMessages = messages.map((msg, index) => {
+          const existingMsg = prev[index]
+          return existingMsg && existingMsg.id === msg.id ? existingMsg : { ...msg, responseTime: undefined }
+        })
+        return newMessages
+      }
+      return prev
+    })
+  }, [messages])
 
   // Track request start time
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setRequestStartTime(Date.now())
-    setResponseTime(null)
     handleSubmit(e)
   }
 
@@ -85,15 +119,7 @@ export default function LakeBalatonChat() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
-              {responseTime && (
-                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  <Clock className="h-3 w-3" />
-                  <span>{responseTime.toFixed(1)}s</span>
-                </div>
-              )}
-            </div>
+            <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
           </div>
         </div>
 
@@ -129,9 +155,6 @@ export default function LakeBalatonChat() {
                   </p>
                   <p>
                     <strong>Betöltés:</strong> {isLoading ? "Igen" : "Nem"}
-                  </p>
-                  <p>
-                    <strong>Válaszidő:</strong> {responseTime ? `${responseTime.toFixed(2)}s` : "N/A"}
                   </p>
                   <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
@@ -202,7 +225,6 @@ export default function LakeBalatonChat() {
                           handleInputChange({ target: { value: suggestion } } as any)
                           setTimeout(() => {
                             setRequestStartTime(Date.now())
-                            setResponseTime(null)
                             handleSubmit(syntheticEvent)
                           }, 100)
                         }}
@@ -217,8 +239,8 @@ export default function LakeBalatonChat() {
               </div>
             )}
 
-            {messages.map((message, index) => {
-              const isNewMessage = index === messages.length - 1
+            {messagesWithTiming.map((message, index) => {
+              const isNewMessage = index === messagesWithTiming.length - 1
               return (
                 <div
                   key={message.id}
@@ -253,7 +275,15 @@ export default function LakeBalatonChat() {
                     >
                       <p className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{message.content}</p>
                       {message.role === "assistant" && (
-                        <div className="text-xs text-gray-400 mt-1 sm:mt-2">Balaton Asszisztens</div>
+                        <div className="flex items-center justify-between mt-1 sm:mt-2">
+                          <span className="text-xs text-gray-400">Balaton Asszisztens</span>
+                          {message.responseTime && (
+                            <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
+                              <Clock className="h-3 w-3" />
+                              <span>{message.responseTime.toFixed(1)}s</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
