@@ -76,15 +76,15 @@
   }
 }
 
-/* Lake Balaton Wave Animation - Main message entrance */
-@keyframes waveIn {
+/* Refined Lake Balaton Message Animation - Single, smooth entrance */
+@keyframes messageAppear {
   0% {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(15px) scale(0.98);
   }
-  50% {
-    opacity: 0.7;
-    transform: translateY(-5px) scale(1.02);
+  60% {
+    opacity: 0.8;
+    transform: translateY(-2px) scale(1.01);
   }
   100% {
     opacity: 1;
@@ -92,8 +92,24 @@
   }
 }
 
-.animate-wave-in {
-  animation: waveIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.animate-message-appear {
+  animation: messageAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Fade in up animation for suggestion buttons */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Floating animation for the bot avatar */
@@ -103,7 +119,7 @@
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
 }
 
@@ -111,22 +127,22 @@
   animation: float 3s ease-in-out infinite;
 }
 
-/* Wave dots animation for typing indicator */
+/* Wave dots animation for typing indicator - more subtle */
 @keyframes waveDot {
   0%,
   60%,
   100% {
     transform: translateY(0px);
-    opacity: 0.4;
+    opacity: 0.5;
   }
   30% {
-    transform: translateY(-10px);
+    transform: translateY(-6px);
     opacity: 1;
   }
 }
 
 .animate-wave-dot {
-  animation: waveDot 1.4s ease-in-out infinite;
+  animation: waveDot 1.2s ease-in-out infinite;
 }
 
 /* Ripple effect for buttons */
@@ -215,12 +231,16 @@ input,
   }
 
   /* Reduce animation intensity on mobile for better performance */
-  .animate-wave-in {
-    animation-duration: 0.4s;
+  .animate-message-appear {
+    animation-duration: 0.3s;
   }
 
   .animate-float {
     animation-duration: 4s;
+  }
+
+  .animate-wave-dot {
+    animation-duration: 1s;
   }
 }
 
@@ -238,4 +258,10 @@ body {
   .safe-area-inset-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+}
+
+/* Response time indicator styling */
+.response-time-badge {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }

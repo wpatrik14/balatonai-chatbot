@@ -6,13 +6,15 @@ import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Bot, User, Loader2, RotateCcw, Settings } from "lucide-react"
-import { useRef, useEffect } from "react"
+import { Send, Bot, User, Loader2, RotateCcw, Settings, Clock } from "lucide-react"
+import { useRef, useEffect, useState } from "react"
 import { useSession } from "../hooks/useSession"
 
 export default function LakeBalatonChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [requestStartTime, setRequestStartTime] = useState<number | null>(null)
+  const [responseTime, setResponseTime] = useState<number | null>(null)
 
   const { sessionId, isLoading: sessionLoading, startNewSession } = useSession()
 
@@ -23,14 +25,29 @@ export default function LakeBalatonChat() {
     },
     onResponse: (response) => {
       console.log("Chat response received:", response)
+      if (requestStartTime) {
+        const elapsed = (Date.now() - requestStartTime) / 1000
+        setResponseTime(elapsed)
+        console.log(`Response time: ${elapsed.toFixed(2)}s`)
+      }
     },
     onFinish: (message) => {
       console.log("Chat finished with message:", message)
+      setRequestStartTime(null)
     },
     onError: (error) => {
       console.error("Chat error:", error)
+      setRequestStartTime(null)
+      setResponseTime(null)
     },
   })
+
+  // Track request start time
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    setRequestStartTime(Date.now())
+    setResponseTime(null)
+    handleSubmit(e)
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -68,7 +85,15 @@ export default function LakeBalatonChat() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
-            <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
+              {responseTime && (
+                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  <Clock className="h-3 w-3" />
+                  <span>{responseTime.toFixed(1)}s</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -106,6 +131,9 @@ export default function LakeBalatonChat() {
                     <strong>Betöltés:</strong> {isLoading ? "Igen" : "Nem"}
                   </p>
                   <p>
+                    <strong>Válaszidő:</strong> {responseTime ? `${responseTime.toFixed(2)}s` : "N/A"}
+                  </p>
+                  <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
                   </p>
                   <Button
@@ -113,10 +141,12 @@ export default function LakeBalatonChat() {
                     variant="outline"
                     onClick={async () => {
                       try {
+                        const testStart = Date.now()
                         const response = await fetch("/api/test-webhook", { method: "POST" })
+                        const testTime = (Date.now() - testStart) / 1000
                         const result = await response.json()
                         console.log("Webhook test result:", result)
-                        alert("Ellenőrizd a konzolt a webhook teszt eredményeiért")
+                        alert(`Webhook teszt: ${testTime.toFixed(2)}s - Ellenőrizd a konzolt`)
                       } catch (error) {
                         console.error("Webhook test failed:", error)
                         alert("Webhook teszt sikertelen - ellenőrizd a konzolt")
@@ -136,7 +166,7 @@ export default function LakeBalatonChat() {
       {/* Error Display */}
       {error && (
         <div className="flex-shrink-0 mx-3 sm:mx-4 mt-3 sm:mt-4">
-          <Card className="border-red-200 bg-red-50 p-3 sm:p-4 animate-wave-in">
+          <Card className="border-red-200 bg-red-50 p-3 sm:p-4">
             <p className="text-red-800 text-sm">
               <strong>Kapcsolódási hiba:</strong> {error.message}
             </p>
@@ -149,7 +179,7 @@ export default function LakeBalatonChat() {
         <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-4">
             {messages.length === 0 && (
-              <div className="text-center py-8 sm:py-12 animate-wave-in">
+              <div className="text-center py-8 sm:py-12">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg animate-float">
                   <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                 </div>
@@ -170,10 +200,14 @@ export default function LakeBalatonChat() {
                             preventDefault: () => {},
                           } as React.FormEvent<HTMLFormElement>
                           handleInputChange({ target: { value: suggestion } } as any)
-                          setTimeout(() => handleSubmit(syntheticEvent), 100)
+                          setTimeout(() => {
+                            setRequestStartTime(Date.now())
+                            setResponseTime(null)
+                            handleSubmit(syntheticEvent)
+                          }, 100)
                         }}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 animate-wave-in text-xs sm:text-sm"
-                        style={{ animationDelay: `${index * 100}ms` }}
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-xs sm:text-sm opacity-0 animate-fade-in-up"
+                        style={{ animationDelay: `${index * 150 + 500}ms` }}
                       >
                         {suggestion}
                       </Button>
@@ -183,50 +217,52 @@ export default function LakeBalatonChat() {
               </div>
             )}
 
-            {messages.map((message, index) => (
-              <div
-                key={message.id}
-                className={`flex gap-2 sm:gap-3 animate-wave-in ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
+            {messages.map((message, index) => {
+              const isNewMessage = index === messages.length - 1
+              return (
                 <div
-                  className={`flex gap-2 sm:gap-3 max-w-[85%] sm:max-w-[80%] ${
-                    message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  key={message.id}
+                  className={`flex gap-2 sm:gap-3 ${message.role === "user" ? "justify-end" : "justify-start"} ${
+                    isNewMessage ? "opacity-0 animate-message-appear" : ""
                   }`}
                 >
                   <div
-                    className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm ${
-                      message.role === "user"
-                        ? "bg-gradient-to-br from-blue-500 to-blue-600"
-                        : "bg-gray-100 border border-gray-200"
+                    className={`flex gap-2 sm:gap-3 max-w-[85%] sm:max-w-[80%] ${
+                      message.role === "user" ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
-                    {message.role === "user" ? (
-                      <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                    ) : (
-                      <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
-                    )}
-                  </div>
-                  <div
-                    className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 shadow-sm ${
-                      message.role === "user"
-                        ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
-                        : "bg-gray-50 border border-gray-200 text-gray-900"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{message.content}</p>
-                    {message.role === "assistant" && (
-                      <div className="text-xs text-gray-400 mt-1 sm:mt-2">Balaton Asszisztens</div>
-                    )}
+                    <div
+                      className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm ${
+                        message.role === "user"
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600"
+                          : "bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {message.role === "user" ? (
+                        <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                      ) : (
+                        <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                      )}
+                    </div>
+                    <div
+                      className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 shadow-sm ${
+                        message.role === "user"
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+                          : "bg-gray-50 border border-gray-200 text-gray-900"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{message.content}</p>
+                      {message.role === "assistant" && (
+                        <div className="text-xs text-gray-400 mt-1 sm:mt-2">Balaton Asszisztens</div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {isLoading && (
-              <div className="flex gap-2 sm:gap-3 justify-start animate-wave-in">
+              <div className="flex gap-2 sm:gap-3 justify-start opacity-0 animate-message-appear">
                 <div className="flex gap-2 sm:gap-3 max-w-[85%] sm:max-w-[80%]">
                   <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-gray-100 border border-gray-200 shadow-sm">
                     <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
@@ -258,7 +294,7 @@ export default function LakeBalatonChat() {
 
       {/* Fixed Input Form - Always at bottom */}
       <div className="flex-shrink-0 p-3 sm:p-4 border-t border-gray-100 bg-white">
-        <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
+        <form onSubmit={handleFormSubmit} className="flex gap-2 sm:gap-3">
           <div className="flex-1 relative">
             <input
               value={input}
