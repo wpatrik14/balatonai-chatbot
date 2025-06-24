@@ -273,13 +273,19 @@ export default function LakeBalatonChat() {
                       {message.role === "assistant" && (
                         <div className="flex items-center justify-between mt-1 sm:mt-2">
                           <span className="text-xs text-gray-400">Balaton Asszisztens</span>
-                          {isLatestAssistantMessage && currentResponseTime ? (
+                          {/* Always show timing for the latest assistant message if we have currentResponseTime */}
+                          {currentResponseTime && index === messages.length - 1 ? (
                             <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
                               <Clock className="h-3 w-3" />
                               <span>{currentResponseTime.toFixed(1)}s</span>
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-300 ml-2">ID: {message.id?.slice(-4) || "No ID"}</div>
+                            <div className="text-xs text-gray-300 ml-2">
+                              {/* Debug info - show both ID and timing state */}
+                              ID: {message.id?.slice(-4) || "No ID"}
+                              {currentResponseTime && index === messages.length - 1 && " | Has timing"}
+                              {index === messages.length - 1 && " | Latest"}
+                            </div>
                           )}
                         </div>
                       )}
@@ -308,7 +314,14 @@ export default function LakeBalatonChat() {
                           style={{ animationDelay: "0.4s" }}
                         ></div>
                       </div>
-                      <span className="text-gray-600 ml-2 text-sm sm:text-base">Gondolkozom...</span>
+                      <span className="text-gray-600 ml-2 text-sm sm:text-base">
+                        Gondolkozom...
+                        {requestStartTime && (
+                          <span className="text-xs text-blue-500 ml-2">
+                            ({Math.floor((Date.now() - requestStartTime) / 1000)}s)
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
