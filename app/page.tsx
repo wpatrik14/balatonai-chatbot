@@ -24,13 +24,20 @@ export default function LakeBalatonChat() {
       sessionId: sessionId,
     },
     onFinish: (message) => {
-      console.log("Chat finished with message:", message)
+      console.log("=== onFinish called ===")
+      console.log("Message:", message)
+      console.log("Message role:", message.role)
+      console.log("Request start time:", requestStartTime)
+      console.log("Current time:", Date.now())
 
       // Calculate and store the response time
-      if (requestStartTime && message.role === "assistant") {
+      if (requestStartTime) {
         const responseTime = (Date.now() - requestStartTime) / 1000
+        console.log("Calculated response time:", responseTime)
         setCurrentResponseTime(responseTime)
-        console.log(`Response completed in: ${responseTime.toFixed(2)}s`)
+        console.log("Set currentResponseTime to:", responseTime)
+      } else {
+        console.log("No requestStartTime available")
       }
 
       setRequestStartTime(null)
@@ -273,7 +280,7 @@ export default function LakeBalatonChat() {
                       {message.role === "assistant" && (
                         <div className="flex items-center justify-between mt-1 sm:mt-2">
                           <span className="text-xs text-gray-400">Balaton Asszisztens</span>
-                          {/* Always show timing for the latest assistant message if we have currentResponseTime */}
+                          {/* Enhanced debugging for timing display */}
                           {currentResponseTime && index === messages.length - 1 ? (
                             <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
                               <Clock className="h-3 w-3" />
@@ -281,10 +288,10 @@ export default function LakeBalatonChat() {
                             </div>
                           ) : (
                             <div className="text-xs text-gray-300 ml-2">
-                              {/* Debug info - show both ID and timing state */}
                               ID: {message.id?.slice(-4) || "No ID"}
-                              {currentResponseTime && index === messages.length - 1 && " | Has timing"}
                               {index === messages.length - 1 && " | Latest"}
+                              {currentResponseTime && " | RT:" + currentResponseTime.toFixed(1) + "s"}
+                              {!currentResponseTime && index === messages.length - 1 && " | No RT"}
                             </div>
                           )}
                         </div>
