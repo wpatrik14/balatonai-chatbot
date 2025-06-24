@@ -14,8 +14,7 @@ export default function LakeBalatonChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [requestStartTime, setRequestStartTime] = useState<number | null>(null)
-  const [lastResponseTime, setLastResponseTime] = useState<number | null>(null)
-  const [messageTimings, setMessageTimings] = useState<Record<string, number>>({})
+  const [currentResponseTime, setCurrentResponseTime] = useState<number | null>(null)
 
   const { sessionId, isLoading: sessionLoading, startNewSession } = useSession()
 
@@ -24,33 +23,14 @@ export default function LakeBalatonChat() {
     body: {
       sessionId: sessionId,
     },
-    onResponse: (response) => {
-      console.log("Chat response received:", response)
-      if (requestStartTime) {
-        const responseTime = (Date.now() - requestStartTime) / 1000
-        setLastResponseTime(responseTime)
-        console.log(`Response time: ${responseTime.toFixed(2)}s`)
-      }
-    },
     onFinish: (message) => {
       console.log("Chat finished with message:", message)
-      console.log("Message object:", JSON.stringify(message, null, 2))
 
-      // Store the timing for this specific message
+      // Calculate and store the response time
       if (requestStartTime && message.role === "assistant") {
         const responseTime = (Date.now() - requestStartTime) / 1000
-        console.log(`Storing timing for message ID: ${message.id}, time: ${responseTime.toFixed(2)}s`)
-
-        setMessageTimings((prev) => {
-          const updated = {
-            ...prev,
-            [message.id]: responseTime,
-          }
-          console.log("Updated messageTimings:", updated)
-          return updated
-        })
-
-        setLastResponseTime(responseTime)
+        setCurrentResponseTime(responseTime)
+        console.log(`Response completed in: ${responseTime.toFixed(2)}s`)
       }
 
       setRequestStartTime(null)
@@ -58,7 +38,7 @@ export default function LakeBalatonChat() {
     onError: (error) => {
       console.error("Chat error:", error)
       setRequestStartTime(null)
-      setLastResponseTime(null)
+      setCurrentResponseTime(null)
     },
   })
 
@@ -66,8 +46,8 @@ export default function LakeBalatonChat() {
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     const startTime = Date.now()
     setRequestStartTime(startTime)
-    setLastResponseTime(null)
-    console.log("Request started at:", startTime)
+    setCurrentResponseTime(null) // Clear previous timing
+    console.log("Request started at:", new Date(startTime).toISOString())
     handleSubmit(e)
   }
 
@@ -75,8 +55,8 @@ export default function LakeBalatonChat() {
   const handleSuggestionClick = (suggestion: string) => {
     const startTime = Date.now()
     setRequestStartTime(startTime)
-    setLastResponseTime(null)
-    console.log("Suggestion request started at:", startTime)
+    setCurrentResponseTime(null) // Clear previous timing
+    console.log("Suggestion request started at:", new Date(startTime).toISOString())
 
     const syntheticEvent = {
       preventDefault: () => {},
@@ -90,19 +70,15 @@ export default function LakeBalatonChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Debug messages and timings
+  // Debug current state
   useEffect(() => {
-    console.log("Messages updated:", messages.length)
-    console.log("Current messageTimings:", messageTimings)
-    console.log("Last response time:", lastResponseTime)
-
-    // Check if we have timing for the latest assistant message
-    const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
-    if (lastAssistantMessage) {
-      console.log(`Last assistant message ID: ${lastAssistantMessage.id}`)
-      console.log(`Has timing: ${!!messageTimings[lastAssistantMessage.id]}`)
-    }
-  }, [messages, messageTimings, lastResponseTime])
+    console.log("Current state:", {
+      messagesCount: messages.length,
+      isLoading,
+      requestStartTime: requestStartTime ? new Date(requestStartTime).toISOString() : null,
+      currentResponseTime,
+    })
+  }, [messages, isLoading, requestStartTime, currentResponseTime])
 
   if (sessionLoading) {
     return (
@@ -132,10 +108,10 @@ export default function LakeBalatonChat() {
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
             <div className="flex items-center gap-2">
               <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
-              {lastResponseTime && (
+              {currentResponseTime && (
                 <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                   <Clock className="h-3 w-3" />
-                  <span>Utolsó: {lastResponseTime.toFixed(1)}s</span>
+                  <span>Utolsó: {currentResponseTime.toFixed(1)}s</span>
                 </div>
               )}
             </div>
@@ -176,15 +152,13 @@ export default function LakeBalatonChat() {
                     <strong>Betöltés:</strong> {isLoading ? "Igen" : "Nem"}
                   </p>
                   <p>
-                    <strong>Utolsó válaszidő:</strong> {lastResponseTime ? `${lastResponseTime.toFixed(2)}s` : "N/A"}
+                    <strong>Kérés kezdete:</strong>{" "}
+                    {requestStartTime ? new Date(requestStartTime).toLocaleTimeString() : "N/A"}
                   </p>
                   <p>
-                    <strong>Tárolt időzítések:</strong> {Object.keys(messageTimings).length}
+                    <strong>Jelenlegi válaszidő:</strong>{" "}
+                    {currentResponseTime ? `${currentResponseTime.toFixed(2)}s` : "N/A"}
                   </p>
-                  <div className="text-xs bg-gray-50 p-2 rounded mt-2">
-                    <strong>Időzítések:</strong>
-                    <pre className="text-xs overflow-auto max-h-20">{JSON.stringify(messageTimings, null, 2)}</pre>
-                  </div>
                   <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
                   </p>
@@ -261,7 +235,7 @@ export default function LakeBalatonChat() {
 
             {messages.map((message, index) => {
               const isNewMessage = index === messages.length - 1
-              const messageResponseTime = message.id ? messageTimings[message.id] : null
+              const isLatestAssistantMessage = message.role === "assistant" && index === messages.length - 1
 
               return (
                 <div
@@ -299,19 +273,12 @@ export default function LakeBalatonChat() {
                       {message.role === "assistant" && (
                         <div className="flex items-center justify-between mt-1 sm:mt-2">
                           <span className="text-xs text-gray-400">Balaton Asszisztens</span>
-                          {messageResponseTime ? (
+                          {isLatestAssistantMessage && currentResponseTime ? (
                             <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
                               <Clock className="h-3 w-3" />
-                              <span>{messageResponseTime.toFixed(1)}s</span>
-                            </div>
-                          ) : // Fallback: use lastResponseTime if this is the most recent message
-                          index === messages.length - 1 && lastResponseTime ? (
-                            <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
-                              <Clock className="h-3 w-3" />
-                              <span>{lastResponseTime.toFixed(1)}s</span>
+                              <span>{currentResponseTime.toFixed(1)}s</span>
                             </div>
                           ) : (
-                            // Debug info
                             <div className="text-xs text-gray-300 ml-2">ID: {message.id?.slice(-4) || "No ID"}</div>
                           )}
                         </div>
