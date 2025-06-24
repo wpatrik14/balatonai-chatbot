@@ -63,7 +63,7 @@ export default function LakeBalatonChat() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
-            <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
+            <p className="text-xs sm:text-sm text-gray-500">Mert nekünk a Balaton a Riviéra...</p>
           </div>
         </div>
 
