@@ -34,15 +34,23 @@ export default function LakeBalatonChat() {
     },
     onFinish: (message) => {
       console.log("Chat finished with message:", message)
+      console.log("Message object:", JSON.stringify(message, null, 2))
 
       // Store the timing for this specific message
-      if (requestStartTime && message.role === "assistant" && message.id) {
+      if (requestStartTime && message.role === "assistant") {
         const responseTime = (Date.now() - requestStartTime) / 1000
-        setMessageTimings((prev) => ({
-          ...prev,
-          [message.id]: responseTime,
-        }))
-        console.log(`Final response time for message ${message.id}: ${responseTime.toFixed(2)}s`)
+        console.log(`Storing timing for message ID: ${message.id}, time: ${responseTime.toFixed(2)}s`)
+
+        setMessageTimings((prev) => {
+          const updated = {
+            ...prev,
+            [message.id]: responseTime,
+          }
+          console.log("Updated messageTimings:", updated)
+          return updated
+        })
+
+        setLastResponseTime(responseTime)
       }
 
       setRequestStartTime(null)
@@ -84,9 +92,16 @@ export default function LakeBalatonChat() {
 
   // Debug messages and timings
   useEffect(() => {
-    console.log("Messages updated:", messages)
-    console.log("Message timings:", messageTimings)
+    console.log("Messages updated:", messages.length)
+    console.log("Current messageTimings:", messageTimings)
     console.log("Last response time:", lastResponseTime)
+
+    // Check if we have timing for the latest assistant message
+    const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+    if (lastAssistantMessage) {
+      console.log(`Last assistant message ID: ${lastAssistantMessage.id}`)
+      console.log(`Has timing: ${!!messageTimings[lastAssistantMessage.id]}`)
+    }
   }, [messages, messageTimings, lastResponseTime])
 
   if (sessionLoading) {
@@ -166,6 +181,10 @@ export default function LakeBalatonChat() {
                   <p>
                     <strong>Tárolt időzítések:</strong> {Object.keys(messageTimings).length}
                   </p>
+                  <div className="text-xs bg-gray-50 p-2 rounded mt-2">
+                    <strong>Időzítések:</strong>
+                    <pre className="text-xs overflow-auto max-h-20">{JSON.stringify(messageTimings, null, 2)}</pre>
+                  </div>
                   <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
                   </p>
@@ -285,11 +304,15 @@ export default function LakeBalatonChat() {
                               <Clock className="h-3 w-3" />
                               <span>{messageResponseTime.toFixed(1)}s</span>
                             </div>
-                          ) : (
-                            // Show a placeholder for debugging
-                            <div className="text-xs text-gray-300 ml-2">
-                              {message.id ? `ID: ${message.id.slice(-4)}` : "No ID"}
+                          ) : // Fallback: use lastResponseTime if this is the most recent message
+                          index === messages.length - 1 && lastResponseTime ? (
+                            <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
+                              <Clock className="h-3 w-3" />
+                              <span>{lastResponseTime.toFixed(1)}s</span>
                             </div>
+                          ) : (
+                            // Debug info
+                            <div className="text-xs text-gray-300 ml-2">ID: {message.id?.slice(-4) || "No ID"}</div>
                           )}
                         </div>
                       )}
