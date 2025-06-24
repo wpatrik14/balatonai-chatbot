@@ -6,15 +6,13 @@ import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Bot, User, Loader2, RotateCcw, Settings, Clock } from "lucide-react"
-import { useRef, useEffect, useState } from "react"
+import { Send, Bot, User, Loader2, RotateCcw, Settings } from "lucide-react"
+import { useRef, useEffect } from "react"
 import { useSession } from "../hooks/useSession"
 
 export default function LakeBalatonChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [requestStartTime, setRequestStartTime] = useState<number | null>(null)
-  const [currentResponseTime, setCurrentResponseTime] = useState<number | null>(null)
 
   const { sessionId, isLoading: sessionLoading, startNewSession } = useSession()
 
@@ -23,48 +21,10 @@ export default function LakeBalatonChat() {
     body: {
       sessionId: sessionId,
     },
-    onFinish: (message) => {
-      console.log("=== onFinish called ===")
-      console.log("Message:", message)
-      console.log("Message role:", message.role)
-      console.log("Request start time:", requestStartTime)
-      console.log("Current time:", Date.now())
-
-      // Calculate and store the response time
-      if (requestStartTime) {
-        const responseTime = (Date.now() - requestStartTime) / 1000
-        console.log("Calculated response time:", responseTime)
-        setCurrentResponseTime(responseTime)
-        console.log("Set currentResponseTime to:", responseTime)
-      } else {
-        console.log("No requestStartTime available")
-      }
-
-      setRequestStartTime(null)
-    },
-    onError: (error) => {
-      console.error("Chat error:", error)
-      setRequestStartTime(null)
-      setCurrentResponseTime(null)
-    },
   })
-
-  // Track request start time
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    const startTime = Date.now()
-    setRequestStartTime(startTime)
-    setCurrentResponseTime(null) // Clear previous timing
-    console.log("Request started at:", new Date(startTime).toISOString())
-    handleSubmit(e)
-  }
 
   // Handle suggestion clicks
   const handleSuggestionClick = (suggestion: string) => {
-    const startTime = Date.now()
-    setRequestStartTime(startTime)
-    setCurrentResponseTime(null) // Clear previous timing
-    console.log("Suggestion request started at:", new Date(startTime).toISOString())
-
     const syntheticEvent = {
       preventDefault: () => {},
     } as React.FormEvent<HTMLFormElement>
@@ -76,16 +36,6 @@ export default function LakeBalatonChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
-
-  // Debug current state
-  useEffect(() => {
-    console.log("Current state:", {
-      messagesCount: messages.length,
-      isLoading,
-      requestStartTime: requestStartTime ? new Date(requestStartTime).toISOString() : null,
-      currentResponseTime,
-    })
-  }, [messages, isLoading, requestStartTime, currentResponseTime])
 
   if (sessionLoading) {
     return (
@@ -113,15 +63,7 @@ export default function LakeBalatonChat() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
-              {currentResponseTime && (
-                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  <Clock className="h-3 w-3" />
-                  <span>Utolsó: {currentResponseTime.toFixed(1)}s</span>
-                </div>
-              )}
-            </div>
+            <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
           </div>
         </div>
 
@@ -157,14 +99,6 @@ export default function LakeBalatonChat() {
                   </p>
                   <p>
                     <strong>Betöltés:</strong> {isLoading ? "Igen" : "Nem"}
-                  </p>
-                  <p>
-                    <strong>Kérés kezdete:</strong>{" "}
-                    {requestStartTime ? new Date(requestStartTime).toLocaleTimeString() : "N/A"}
-                  </p>
-                  <p>
-                    <strong>Jelenlegi válaszidő:</strong>{" "}
-                    {currentResponseTime ? `${currentResponseTime.toFixed(2)}s` : "N/A"}
                   </p>
                   <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
@@ -242,7 +176,6 @@ export default function LakeBalatonChat() {
 
             {messages.map((message, index) => {
               const isNewMessage = index === messages.length - 1
-              const isLatestAssistantMessage = message.role === "assistant" && index === messages.length - 1
 
               return (
                 <div
@@ -280,20 +213,6 @@ export default function LakeBalatonChat() {
                       {message.role === "assistant" && (
                         <div className="flex items-center justify-between mt-1 sm:mt-2">
                           <span className="text-xs text-gray-400">Balaton Asszisztens</span>
-                          {/* Enhanced debugging for timing display */}
-                          {currentResponseTime && index === messages.length - 1 ? (
-                            <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
-                              <Clock className="h-3 w-3" />
-                              <span>{currentResponseTime.toFixed(1)}s</span>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-300 ml-2">
-                              ID: {message.id?.slice(-4) || "No ID"}
-                              {index === messages.length - 1 && " | Latest"}
-                              {currentResponseTime && " | RT:" + currentResponseTime.toFixed(1) + "s"}
-                              {!currentResponseTime && index === messages.length - 1 && " | No RT"}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -321,14 +240,7 @@ export default function LakeBalatonChat() {
                           style={{ animationDelay: "0.4s" }}
                         ></div>
                       </div>
-                      <span className="text-gray-600 ml-2 text-sm sm:text-base">
-                        Gondolkozom...
-                        {requestStartTime && (
-                          <span className="text-xs text-blue-500 ml-2">
-                            ({Math.floor((Date.now() - requestStartTime) / 1000)}s)
-                          </span>
-                        )}
-                      </span>
+                      <span className="text-gray-600 ml-2 text-sm sm:text-base">Gondolkozom...</span>
                     </div>
                   </div>
                 </div>
@@ -342,7 +254,7 @@ export default function LakeBalatonChat() {
 
       {/* Fixed Input Form - Always at bottom */}
       <div className="flex-shrink-0 p-3 sm:p-4 border-t border-gray-100 bg-white">
-        <form onSubmit={handleFormSubmit} className="flex gap-2 sm:gap-3">
+        <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
           <div className="flex-1 relative">
             <input
               value={input}
