@@ -10,18 +10,12 @@ import { Send, Bot, User, Loader2, RotateCcw, Settings, Clock } from "lucide-rea
 import { useRef, useEffect, useState } from "react"
 import { useSession } from "../hooks/useSession"
 
-interface MessageWithTiming {
-  id: string
-  role: string
-  content: string
-  responseTime?: number
-}
-
 export default function LakeBalatonChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [requestStartTime, setRequestStartTime] = useState<number | null>(null)
-  const [messagesWithTiming, setMessagesWithTiming] = useState<MessageWithTiming[]>([])
+  const [lastResponseTime, setLastResponseTime] = useState<number | null>(null)
+  const [messageTimings, setMessageTimings] = useState<Record<string, number>>({})
 
   const { sessionId, isLoading: sessionLoading, startNewSession } = useSession()
 
@@ -32,55 +26,55 @@ export default function LakeBalatonChat() {
     },
     onResponse: (response) => {
       console.log("Chat response received:", response)
+      if (requestStartTime) {
+        const responseTime = (Date.now() - requestStartTime) / 1000
+        setLastResponseTime(responseTime)
+        console.log(`Response time: ${responseTime.toFixed(2)}s`)
+      }
     },
     onFinish: (message) => {
       console.log("Chat finished with message:", message)
 
-      // Calculate response time and add it to the message
-      if (requestStartTime && message.role === "assistant") {
+      // Store the timing for this specific message
+      if (requestStartTime && message.role === "assistant" && message.id) {
         const responseTime = (Date.now() - requestStartTime) / 1000
-        console.log(`Response time: ${responseTime.toFixed(2)}s`)
-
-        // Update the messages with timing
-        setMessagesWithTiming((prev) => {
-          const updated = [...prev]
-          const lastAssistantIndex = updated.map((m) => m.role).lastIndexOf("assistant")
-          if (lastAssistantIndex !== -1) {
-            updated[lastAssistantIndex] = {
-              ...updated[lastAssistantIndex],
-              responseTime,
-            }
-          }
-          return updated
-        })
+        setMessageTimings((prev) => ({
+          ...prev,
+          [message.id]: responseTime,
+        }))
+        console.log(`Final response time for message ${message.id}: ${responseTime.toFixed(2)}s`)
       }
+
       setRequestStartTime(null)
     },
     onError: (error) => {
       console.error("Chat error:", error)
       setRequestStartTime(null)
+      setLastResponseTime(null)
     },
   })
 
-  // Sync messages with timing state
-  useEffect(() => {
-    setMessagesWithTiming((prev) => {
-      // If messages length changed, update our timing array
-      if (prev.length !== messages.length) {
-        const newMessages = messages.map((msg, index) => {
-          const existingMsg = prev[index]
-          return existingMsg && existingMsg.id === msg.id ? existingMsg : { ...msg, responseTime: undefined }
-        })
-        return newMessages
-      }
-      return prev
-    })
-  }, [messages])
-
   // Track request start time
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    setRequestStartTime(Date.now())
+    const startTime = Date.now()
+    setRequestStartTime(startTime)
+    setLastResponseTime(null)
+    console.log("Request started at:", startTime)
     handleSubmit(e)
+  }
+
+  // Handle suggestion clicks
+  const handleSuggestionClick = (suggestion: string) => {
+    const startTime = Date.now()
+    setRequestStartTime(startTime)
+    setLastResponseTime(null)
+    console.log("Suggestion request started at:", startTime)
+
+    const syntheticEvent = {
+      preventDefault: () => {},
+    } as React.FormEvent<HTMLFormElement>
+    handleInputChange({ target: { value: suggestion } } as any)
+    setTimeout(() => handleSubmit(syntheticEvent), 100)
   }
 
   // Auto-scroll to bottom when new messages arrive
@@ -88,10 +82,12 @@ export default function LakeBalatonChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Debug messages changes
+  // Debug messages and timings
   useEffect(() => {
     console.log("Messages updated:", messages)
-  }, [messages])
+    console.log("Message timings:", messageTimings)
+    console.log("Last response time:", lastResponseTime)
+  }, [messages, messageTimings, lastResponseTime])
 
   if (sessionLoading) {
     return (
@@ -119,7 +115,15 @@ export default function LakeBalatonChat() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900">Balaton Asszisztens</h1>
-            <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs sm:text-sm text-gray-500">AI Segítő</p>
+              {lastResponseTime && (
+                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  <Clock className="h-3 w-3" />
+                  <span>Utolsó: {lastResponseTime.toFixed(1)}s</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -155,6 +159,12 @@ export default function LakeBalatonChat() {
                   </p>
                   <p>
                     <strong>Betöltés:</strong> {isLoading ? "Igen" : "Nem"}
+                  </p>
+                  <p>
+                    <strong>Utolsó válaszidő:</strong> {lastResponseTime ? `${lastResponseTime.toFixed(2)}s` : "N/A"}
+                  </p>
+                  <p>
+                    <strong>Tárolt időzítések:</strong> {Object.keys(messageTimings).length}
                   </p>
                   <p>
                     <strong>Hiba:</strong> {error ? error.message : "Nincs"}
@@ -218,16 +228,7 @@ export default function LakeBalatonChat() {
                         key={suggestion}
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          const syntheticEvent = {
-                            preventDefault: () => {},
-                          } as React.FormEvent<HTMLFormElement>
-                          handleInputChange({ target: { value: suggestion } } as any)
-                          setTimeout(() => {
-                            setRequestStartTime(Date.now())
-                            handleSubmit(syntheticEvent)
-                          }, 100)
-                        }}
+                        onClick={() => handleSuggestionClick(suggestion)}
                         className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-xs sm:text-sm opacity-0 animate-fade-in-up"
                         style={{ animationDelay: `${index * 150 + 500}ms` }}
                       >
@@ -239,8 +240,10 @@ export default function LakeBalatonChat() {
               </div>
             )}
 
-            {messagesWithTiming.map((message, index) => {
-              const isNewMessage = index === messagesWithTiming.length - 1
+            {messages.map((message, index) => {
+              const isNewMessage = index === messages.length - 1
+              const messageResponseTime = message.id ? messageTimings[message.id] : null
+
               return (
                 <div
                   key={message.id}
@@ -277,10 +280,15 @@ export default function LakeBalatonChat() {
                       {message.role === "assistant" && (
                         <div className="flex items-center justify-between mt-1 sm:mt-2">
                           <span className="text-xs text-gray-400">Balaton Asszisztens</span>
-                          {message.responseTime && (
+                          {messageResponseTime ? (
                             <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-2">
                               <Clock className="h-3 w-3" />
-                              <span>{message.responseTime.toFixed(1)}s</span>
+                              <span>{messageResponseTime.toFixed(1)}s</span>
+                            </div>
+                          ) : (
+                            // Show a placeholder for debugging
+                            <div className="text-xs text-gray-300 ml-2">
+                              {message.id ? `ID: ${message.id.slice(-4)}` : "No ID"}
                             </div>
                           )}
                         </div>
