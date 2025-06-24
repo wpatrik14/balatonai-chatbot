@@ -31,9 +31,48 @@
   * {
     @apply border-border;
   }
+
+  html {
+    /* Prevent zoom on iOS when focusing inputs */
+    -webkit-text-size-adjust: 100%;
+    /* Ensure full height on mobile */
+    height: 100%;
+  }
+
   body {
     @apply bg-white text-gray-900;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Ensure full height on mobile */
+    height: 100%;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="search"],
+  textarea {
+    font-size: 16px;
+  }
+
+  @media (max-width: 640px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="search"],
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Mobile viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific fixes */
+  .fixed.inset-0 {
+    height: -webkit-fill-available;
   }
 }
 
@@ -162,37 +201,41 @@ input,
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Lake Balaton inspired gradient backgrounds */
-.bg-lake-gradient {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e40af 100%);
+/* Mobile-specific optimizations */
+@media (max-width: 640px) {
+  /* Ensure touch targets are large enough */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Optimize text sizes for mobile */
+  .text-xs {
+    font-size: 0.75rem;
+  }
+
+  /* Reduce animation intensity on mobile for better performance */
+  .animate-wave-in {
+    animation-duration: 0.4s;
+  }
+
+  .animate-float {
+    animation-duration: 4s;
+  }
 }
 
-.bg-lake-shimmer {
-  background: linear-gradient(45deg, #3b82f6, #60a5fa, #3b82f6, #1d4ed8);
-  background-size: 400% 400%;
-  animation: shimmer 3s ease infinite;
+/* Prevent horizontal scroll on mobile */
+body {
+  overflow-x: hidden;
 }
 
-/* Message bubble hover effects */
-.message-bubble {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
+/* Safe area insets for devices with notches */
+@supports (padding: max(0px)) {
+  .safe-area-inset-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
 
-.message-bubble:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-}
-
-/* Staggered animation delays for multiple elements */
-.animate-stagger-1 {
-  animation-delay: 0.1s;
-}
-.animate-stagger-2 {
-  animation-delay: 0.2s;
-}
-.animate-stagger-3 {
-  animation-delay: 0.3s;
-}
-.animate-stagger-4 {
-  animation-delay: 0.4s;
+  .safe-area-inset-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }
